@@ -1,0 +1,189 @@
+================================================================================
+                    CISCO SWITCH CONFIGURATION TEMPLATE
+                        For Packet Tracer Lab Setup
+================================================================================
+
+!!! BASIC SWITCH SETUP !!!
+
+Switch> enable
+Switch# configure terminal
+Switch(config)# hostname MAIN-SWITCH
+Switch(config)# ip domain-name company.com
+
+!!! CREATE VLANs !!!
+
+!--- VLAN 10 - Sales Department
+Switch(config)# vlan 10
+Switch(config-vlan)# name Sales
+Switch(config-vlan)# exit
+
+!--- VLAN 20 - IT Department
+Switch(config)# vlan 20
+Switch(config-vlan)# name IT
+Switch(config-vlan)# exit
+
+!--- VLAN 30 - Accounting Department
+Switch(config)# vlan 30
+Switch(config-vlan)# name Accounting
+Switch(config-vlan)# exit
+
+!--- VLAN 99 - Management (Admin access)
+Switch(config)# vlan 99
+Switch(config-vlan)# name Management
+Switch(config-vlan)# exit
+
+!!! ASSIGN PORTS TO VLANs !!!
+
+!--- Assign Fa0/1 to Fa0/10 to VLAN 10 (Sales)
+Switch(config)# interface range FastEthernet 0/1-10
+Switch(config-if-range)# switchport mode access
+Switch(config-if-range)# switchport access vlan 10
+Switch(config-if-range)# exit
+
+!--- Assign Fa0/11 to Fa0/20 to VLAN 20 (IT)
+Switch(config)# interface range FastEthernet 0/11-20
+Switch(config-if-range)# switchport mode access
+Switch(config-if-range)# switchport access vlan 20
+Switch(config-if-range)# exit
+
+!--- Assign Fa0/21 to Fa0/24 to VLAN 30 (Accounting)
+Switch(config)# interface range FastEthernet 0/21-24
+Switch(config-if-range)# switchport mode access
+Switch(config-if-range)# switchport access vlan 30
+Switch(config-if-range)# exit
+
+!!! CONFIGURE TRUNK PORTS !!!
+
+!--- Fa0/24 is trunk port to Router (Carry all VLANs)
+Switch(config)# interface FastEthernet 0/24
+Switch(config-if)# switchport mode trunk
+Switch(config-if)# switchport trunk allowed vlan 10,20,30,99
+Switch(config-if)# description Trunk to Router
+Switch(config-if)# exit
+
+!--- Fa0/23 is trunk to another switch (Inter-switch link)
+Switch(config)# interface FastEthernet 0/23
+Switch(config-if)# switchport mode trunk
+Switch(config-if)# switchport trunk allowed vlan 1-4094
+Switch(config-if)# description ISL to Switch2
+Switch(config-if)# exit
+
+!!! SPANNING TREE PROTOCOL (STP) CONFIGURATION !!!
+
+!--- Set switch as Primary Root Bridge for VLAN 10
+Switch(config)# spanning-tree vlan 10 root primary
+
+!--- Set switch as Secondary Root Bridge for VLAN 20
+Switch(config)# spanning-tree vlan 20 root secondary
+
+!--- Enable PortFast on access ports (not trunk ports)
+Switch(config)# interface range FastEthernet 0/1-22
+Switch(config-if-range)# spanning-tree portfast
+Switch(config-if-range)# exit
+
+!--- Enable BPDU Guard on PortFast ports
+Switch(config)# interface range FastEthernet 0/1-22
+Switch(config-if-range)# spanning-tree bpduguard enable
+Switch(config-if-range)# exit
+
+!!! PORT SECURITY !!!
+
+!--- Limit MAC addresses on VLAN 10 ports
+Switch(config)# interface range FastEthernet 0/1-10
+Switch(config-if-range)# switchport port-security
+Switch(config-if-range)# switchport port-security maximum 1
+Switch(config-if-range)# switchport port-security violation shutdown
+Switch(config-if-range)# exit
+
+!!! CONFIGURE VLAN INTERFACES (SVI) FOR ROUTING !!!
+
+!--- VLAN 10 SVI (Sales gateway)
+Switch(config)# interface vlan 10
+Switch(config-if)# ip address 192.168.10.250 255.255.255.0
+Switch(config-if)# description Sales VLAN Gateway
+Switch(config-if)# no shutdown
+Switch(config-if)# exit
+
+!--- VLAN 20 SVI (IT gateway)
+Switch(config)# interface vlan 20
+Switch(config-if)# ip address 192.168.20.250 255.255.255.0
+Switch(config-if)# description IT VLAN Gateway
+Switch(config-if)# no shutdown
+Switch(config-if)# exit
+
+!--- VLAN 30 SVI (Accounting gateway)
+Switch(config)# interface vlan 30
+Switch(config-if)# ip address 192.168.30.250 255.255.255.0
+Switch(config-if)# description Accounting VLAN Gateway
+Switch(config-if)# no shutdown
+Switch(config-if)# exit
+
+!--- VLAN 99 SVI (Management)
+Switch(config)# interface vlan 99
+Switch(config-if)# ip address 192.168.99.1 255.255.255.0
+Switch(config-if)# description Management VLAN
+Switch(config-if)# no shutdown
+Switch(config-if)# exit
+
+!!! ENABLE SSH FOR SECURE MANAGEMENT !!!
+
+Switch(config)# ip domain-name company.com
+Switch(config)# crypto key generate rsa modulus 1024
+Switch(config)# username admin privilege 15 secret cisco123
+Switch(config)# line vty 0 4
+Switch(config-line)# transport input ssh
+Switch(config-line)# login local
+Switch(config-line)# exit
+
+!!! ENABLE LOGGING !!!
+
+Switch(config)# logging 192.168.99.100
+Switch(config)# logging trap informational
+
+!!! ACCESS CONTROL LISTS !!!
+
+!--- Prevent IT VLAN from accessing Accounting VLAN
+Switch(config)# access-list 101 deny ip 192.168.20.0 0.0.0.255 192.168.30.0 0.0.0.255
+Switch(config)# access-list 101 permit ip any any
+Switch(config)# interface vlan 20
+Switch(config-if)# ip access-group 101 out
+Switch(config-if)# exit
+
+!!! SAVE CONFIGURATION !!!
+
+Switch(config)# exit
+Switch# copy running-config startup-config
+Switch# write memory
+
+!!! VERIFICATION COMMANDS !!!
+
+Switch# show running-config
+Switch# show vlan brief
+Switch# show interfaces trunk
+Switch# show interfaces status
+Switch# show spanning-tree
+Switch# show port-security
+Switch# show ip interface brief
+Switch# show mac address-table
+Switch# show cdp neighbors
+
+!!! TROUBLESHOOTING COMMANDS !!!
+
+!--- Check VLAN assignment
+Switch# show vlan id 10
+
+!--- Verify trunk status
+Switch# show interfaces FastEthernet 0/24 switchport
+
+!--- Monitor STP convergence
+Switch# show spanning-tree brief
+
+!--- Check port security violations
+Switch# show port-security interface FastEthernet 0/1
+
+!--- Verify inter-VLAN routing
+Switch# ping 192.168.20.1 (should work if router is configured)
+
+================================================================================
+                              END OF TEMPLATE
+================================================================================

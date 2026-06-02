@@ -1,0 +1,172 @@
+================================================================================
+                    FIREWALL CONFIGURATION TEMPLATE
+                  Cisco ASA Format - For Packet Tracer
+================================================================================
+
+!!! BASIC ASA FIREWALL SETUP !!!
+
+ase> enable
+ase# configure terminal
+ase(config)# hostname MAIN-FIREWALL
+ase(config)# domain-name company.com
+
+!!! DEFINE SECURITY ZONES (THREAT LEVELS) !!!
+
+!--- Outside zone (Internet side - Untrusted) - Level 0
+ase(config)# interface GigabitEthernet 0/0
+ase(config-if)# nameif OUTSIDE
+ase(config-if)# security-level 0
+ase(config-if)# ip address 203.0.113.1 255.255.255.0
+ase(config-if)# no shutdown
+ase(config-if)# exit
+
+!--- Inside zone (Internal network - Trusted) - Level 100
+ase(config)# interface GigabitEthernet 0/1
+ase(config-if)# nameif INSIDE
+ase(config-if)# security-level 100
+ase(config-if)# ip address 192.168.1.1 255.255.255.0
+ase(config-if)# no shutdown
+ase(config-if)# exit
+
+!--- DMZ zone (Semi-trusted) - Level 50
+ase(config)# interface GigabitEthernet 0/2
+ase(config-if)# nameif DMZ
+ase(config-if)# security-level 50
+ase(config-if)# ip address 172.16.1.1 255.255.255.0
+ase(config-if)# no shutdown
+ase(config-if)# exit
+
+!!! DEFINE ACLs FOR TRAFFIC FILTERING !!!
+
+!--- ACL to allow INSIDE to OUTSIDE
+ase(config)# access-list INSIDE_OUT extended permit ip 192.168.1.0 255.255.255.0 any
+ase(config)# access-list INSIDE_OUT extended permit tcp 192.168.1.0 255.255.255.0 any eq 80
+ase(config)# access-list INSIDE_OUT extended permit tcp 192.168.1.0 255.255.255.0 any eq 443
+ase(config)# access-list INSIDE_OUT extended permit tcp 192.168.1.0 255.255.255.0 any eq 53
+ase(config)# access-list INSIDE_OUT extended deny ip any any log
+
+!--- ACL to allow OUTSIDE to DMZ (Web Server)
+ase(config)# access-list OUTSIDE_DMZ extended permit tcp any 172.16.1.0 255.255.255.0 eq 80
+ase(config)# access-list OUTSIDE_DMZ extended permit tcp any 172.16.1.0 255.255.255.0 eq 443
+ase(config)# access-list OUTSIDE_DMZ extended deny ip any any log
+
+!--- ACL to allow DMZ to INSIDE (Database Server)
+ase(config)# access-list DMZ_INSIDE extended permit tcp 172.16.1.0 255.255.255.0 192.168.1.0 255.255.255.0 eq 3306
+ase(config)# access-list DMZ_INSIDE extended deny ip any any log
+
+!!! APPLY ACLs TO INTERFACES !!!
+
+ase(config)# access-group INSIDE_OUT in interface INSIDE
+ase(config)# access-group OUTSIDE_DMZ in interface OUTSIDE
+ase(config)# access-group DMZ_INSIDE in interface DMZ
+
+!!! STATIC NAT CONFIGURATION !!!
+
+!--- Map internal web server (192.168.1.100) to external IP (203.0.113.100)
+ase(config)# static (INSIDE, OUTSIDE) 203.0.113.100 192.168.1.100 netmask 255.255.255.255
+
+!--- Map DMZ web server (172.16.1.50) to external IP (203.0.113.50)
+ase(config)# static (DMZ, OUTSIDE) 203.0.113.50 172.16.1.50 netmask 255.255.255.255
+
+!!! DYNAMIC PAT CONFIGURATION !!!
+
+!--- All INSIDE traffic translated to 203.0.113.1
+ase(config)# nat (INSIDE) 1 0.0.0.0 0.0.0.0
+ase(config)# global (OUTSIDE) 1 203.0.113.1
+
+!!! DEFAULT ROUTE !!!
+
+ase(config)# route OUTSIDE 0.0.0.0 0.0.0.0 203.0.113.254
+ase(config)# route INSIDE 192.168.1.0 255.255.255.0 192.168.1.254
+ase(config)# route DMZ 172.16.1.0 255.255.255.0 172.16.1.254
+
+!!! ENABLE STATEFUL INSPECTION !!!
+
+ase(config)# policy-map global_policy
+ase(config-pmap)# class inspection_default
+ase(config-pmap-c)# inspect dns
+ase(config-pmap-c)# inspect ftp
+ase(config-pmap-c)# inspect http
+ase(config-pmap-c)# inspect https
+ase(config-pmap-c)# inspect icmp
+ase(config-pmap-c)# inspect ssh
+ase(config-pmap-c)# inspect tcp
+ase(config-pmap-c)# inspect udp
+ase(config-pmap-c)# exit
+ase(config-pmap)# exit
+ase(config)# service-policy global_policy global
+
+!!! DDOS PROTECTION !!!
+
+!--- Rate limiting for TCP connections
+ase(config)# class-map DDOS_CLASS
+ase(config-cmap)# match any
+ase(config-cmap)# exit
+ase(config)# policy-map DDOS_POLICY
+ase(config-pmap)# class DDOS_CLASS
+ase(config-pmap-c)# set connection conn-max 10000
+ase(config-pmap-c)# set connection per-ip-conn-max 500
+ase(config-pmap-c)# exit
+ase(config-pmap)# exit
+ase(config)# service-policy DDOS_POLICY interface OUTSIDE
+
+!!! ENABLE LOGGING !!!
+
+ase(config)# logging enable
+ase(config)# logging timestamp
+ase(config)# logging host INSIDE 192.168.1.100
+ase(config)# logging trap warnings
+
+!!! SSH CONFIGURATION FOR MANAGEMENT !!!
+
+ase(config)# aaa-server TACACS+ protocol tacacs+
+ase(config-aaa-server)# exit
+ase(config)# aaa authentication ssh console TACACS+ LOCAL
+ase(config)# aaa authorization exec console TACACS+ LOCAL
+ase(config)# username admin password cisco123 privilege 15
+ase(config)# ssh 192.168.1.0 255.255.255.0 INSIDE
+ase(config)# ssh 192.168.1.0 255.255.255.0 INSIDE
+ase(config)# ssh timeout 30
+
+!!! SAVE CONFIGURATION !!!
+
+ase(config)# exit
+ase# write memory
+ase# copy running-config startup-config
+
+!!! VERIFICATION COMMANDS !!!
+
+ase# show running-config
+ase# show interface
+ase# show nat
+ase# show static
+ase# show access-list
+ase# show logging
+ase# show xlate (shows active translations)
+ase# show conn (shows active connections)
+ase# show service-policy
+
+!!! DEBUGGING AND MONITORING !!!
+
+ase# debug policy-map all
+ase# debug nat
+ase# debug icmp trace
+ase# undebug all
+
+!!! COMMON FIREWALL OPERATIONS !!!
+
+!--- Clear all translations (resets NAT table)
+ase# clear xlate
+
+!--- Clear specific translation
+ase# clear xlate inside 192.168.1.100 outside 203.0.113.1
+
+!--- View active connections
+ase# show conn | grep 192.168.1.100
+
+!--- Reload firewall (takes config from startup-config)
+ase# reload
+
+================================================================================
+                              END OF TEMPLATE
+================================================================================

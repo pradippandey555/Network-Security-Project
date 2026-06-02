@@ -1,0 +1,257 @@
+================================================================================
+              VPN CONFIGURATION TEMPLATE FOR CISCO ROUTER
+                        For Packet Tracer Lab Setup
+================================================================================
+
+!!! SITE-TO-SITE IPSEC VPN CONFIGURATION !!!
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!!! ROUTER 1 CONFIGURATION (MAIN OFFICE) !!!
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+
+Router1> enable
+Router1# configure terminal
+Router1(config)# hostname MAIN-ROUTER
+
+!!! STEP 1: DEFINE IKE PHASE 1 POLICY !!!
+!!! (Establishes secure channel for key exchange)
+
+Router1(config)# crypto isakmp policy 10
+Router1(config-isakmp)# encryption aes 256
+Router1(config-isakmp)# hash sha
+Router1(config-isakmp)# authentication pre-share
+Router1(config-isakmp)# group 5
+Router1(config-isakmp)# lifetime 86400
+Router1(config-isakmp)# exit
+
+!--- Pre-shared key (password for IKE negotiation)
+Router1(config)# crypto isakmp key SecureKey123 address 203.0.113.2
+
+!!! STEP 2: DEFINE IPSec PHASE 2 POLICY !!!
+!!! (Defines how data is encrypted)
+
+Router1(config)# crypto ipsec transform-set VPN-TRANSFORM esp-aes 256 esp-sha-hmac
+Router1(config-crypto-trans)# mode tunnel
+Router1(config-crypto-trans)# exit
+
+!!! STEP 3: DEFINE CRYPTO ACL !!!
+!!! (Traffic to be protected by VPN)
+
+Router1(config)# access-list 100 permit ip 192.168.1.0 0.0.0.255 10.0.0.0 0.0.0.255
+
+!!! STEP 4: CREATE CRYPTO MAP !!!
+!!! (Combines IKE Phase 1, Phase 2, and crypto ACL)
+
+Router1(config)# crypto map VPN-MAP 10 ipsec-isakmp
+Router1(config-crypto-map)# set peer 203.0.113.2
+Router1(config-crypto-map)# set transform-set VPN-TRANSFORM
+Router1(config-crypto-map)# match address 100
+Router1(config-crypto-map)# exit
+
+!!! STEP 5: APPLY CRYPTO MAP TO INTERFACE !!!
+!!! (Usually applied to interface facing the internet)
+
+Router1(config)# interface Serial 0/0/0
+Router1(config-if)# crypto map VPN-MAP
+Router1(config-if)# exit
+
+!!! STEP 6: CONFIGURE STATIC ROUTE !!!
+!!! (Route traffic destined for remote network through VPN)
+
+Router1(config)# ip route 10.0.0.0 255.255.255.0 203.0.113.2
+
+!!! SAVE CONFIG !!!
+Router1(config)# exit
+Router1# write memory
+
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!!! ROUTER 2 CONFIGURATION (REMOTE OFFICE) !!!
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+
+Router2> enable
+Router2# configure terminal
+Router2(config)# hostname REMOTE-ROUTER
+
+!!! STEP 1: DEFINE IKE PHASE 1 POLICY !!!
+!!! (MUST MATCH Router1 settings)
+
+Router2(config)# crypto isakmp policy 10
+Router2(config-isakmp)# encryption aes 256
+Router2(config-isakmp)# hash sha
+Router2(config-isakmp)# authentication pre-share
+Router2(config-isakmp)# group 5
+Router2(config-isakmp)# lifetime 86400
+Router2(config-isakmp)# exit
+
+!--- Pre-shared key (MUST MATCH Router1)
+Router2(config)# crypto isakmp key SecureKey123 address 203.0.113.1
+
+!!! STEP 2: DEFINE IPSec PHASE 2 POLICY !!!
+!!! (MUST MATCH Router1 settings)
+
+Router2(config)# crypto ipsec transform-set VPN-TRANSFORM esp-aes 256 esp-sha-hmac
+Router2(config-crypto-trans)# mode tunnel
+Router2(config-crypto-trans)# exit
+
+!!! STEP 3: DEFINE CRYPTO ACL !!!
+!!! (REVERSE of Router1 - remote network to local network)
+
+Router2(config)# access-list 100 permit ip 10.0.0.0 0.0.0.255 192.168.1.0 0.0.0.255
+
+!!! STEP 4: CREATE CRYPTO MAP !!!
+
+Router2(config)# crypto map VPN-MAP 10 ipsec-isakmp
+Router2(config-crypto-map)# set peer 203.0.113.1
+Router2(config-crypto-map)# set transform-set VPN-TRANSFORM
+Router2(config-crypto-map)# match address 100
+Router2(config-crypto-map)# exit
+
+!!! STEP 5: APPLY CRYPTO MAP TO INTERFACE !!!
+
+Router2(config)# interface Serial 0/0/0
+Router2(config-if)# crypto map VPN-MAP
+Router2(config-if)# exit
+
+!!! STEP 6: CONFIGURE STATIC ROUTE !!!
+
+Router2(config)# ip route 192.168.1.0 255.255.255.0 203.0.113.1
+
+!!! SAVE CONFIG !!!
+Router2(config)# exit
+Router2# write memory
+
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!!! VERIFICATION AND TESTING !!!
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+
+!--- View IKE Phase 1 status
+Router# show crypto isakmp sa
+
+!--- View IPSec Phase 2 status
+Router# show crypto ipsec sa
+
+!--- View crypto map configuration
+Router# show crypto map
+
+!--- Test VPN connectivity (ping remote network)
+Router# ping 10.0.0.1
+
+!--- View active crypto connections
+Router# show crypto session brief
+
+!--- Debug IKE negotiation
+Router# debug crypto isakmp
+Router# undebug all
+
+!--- Debug IPSec encryption/decryption
+Router# debug crypto ipsec
+Router# undebug all
+
+!--- Monitor real-time VPN activity
+Router# debug crypto ipsec esp
+
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!!! REMOTE ACCESS VPN (SSL/TLS) !!!
+!!! For remote users to connect securely !!!
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+
+!--- Enable SSL VPN on firewall/router
+Router(config)# crypto ssl vpn enable
+
+!--- Configure VPN pool (IP addresses for remote clients)
+Router(config)# ip local pool VPN-POOL 192.168.1.200 192.168.1.250
+
+!--- Create user account for remote access
+Router(config)# username remoteuser password cisco123 privilege 15
+
+!--- Configure SSL certificate
+Router(config)# crypto pki trustpoint VPN-CERT
+Router(config-trustpoint)# enrollment self
+Router(config-trustpoint)# cn vpn.company.com
+Router(config-trustpoint)# exit
+Router(config)# crypto pki enroll VPN-CERT
+
+!--- Configure SSL VPN group policy
+Router(config)# webvpn
+Router(config-webvpn)# gateway VPN-GATEWAY
+Router(config-webvpn-gateway)# hostname vpn.company.com
+Router(config-webvpn-gateway)# port 443
+Router(config-webvpn-gateway)# ssl trustpoint VPN-CERT
+Router(config-webvpn-gateway)# exit
+
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!!! TROUBLESHOOTING COMMON VPN ISSUES !!!
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+
+!--- Issue: IKE negotiation fails
+!--- Solution: Check pre-shared keys match, check IKE policy settings
+Router# show crypto isakmp sa
+Router# debug crypto isakmp events
+
+!--- Issue: Tunnel is up but no data passes
+!--- Solution: Check crypto ACL, check routing
+Router# show access-list 100
+Router# show ip route
+
+!--- Issue: Crypto ACL not matching
+!--- Solution: Verify source/destination IP ranges
+Router# show crypto map
+Router# debug crypto ipsec
+
+!--- Issue: VPN drops intermittently
+!--- Solution: Check for fragmentation, adjust lifetimes
+Router# show crypto session brief
+Router# show crypto ipsec sa
+
+!--- Clear VPN session
+Router# clear crypto session
+Router# clear crypto isakmp
+Router# clear crypto ipsec
+
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!!! PACKET TRACER VPN LAB TOPOLOGY !!!
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+
+┌─────────────────────────────────────────┐
+│ Main Office                             │
+│ Network: 192.168.1.0/24                 │
+│ ┌──────────────────────────────────┐    │
+│ │ PC1 (192.168.1.10)               │    │
+│ └────────────────┬─────────────────┘    │
+│                  │                       │
+│ ┌────────────────▼──────────────────┐    │
+│ │ Router1 (Fa0/0: 192.168.1.1)     │    │
+│ │ (S0/0/0: 203.0.113.1)            │    │
+│ └────────────────┬─────────────────┘    │
+│                  │                       │
+└──────────────────┼───────────────────────┘
+                   │ Serial Link
+          203.0.113.0/30
+                   │
+                   │
+┌──────────────────┼───────────────────────┐
+│                  │                       │
+│ ┌────────────────▼──────────────────┐    │
+│ │ Router2 (Fa0/0: 10.0.0.1)        │    │
+│ │ (S0/0/0: 203.0.113.2)            │    │
+│ └────────────────┬─────────────────┘    │
+│                  │                       │
+│ ┌────────────────▼──────────────────┐    │
+│ │ PC2 (10.0.0.10)                  │    │
+│ └──────────────────────────────────┘    │
+│ Remote Office                           │
+│ Network: 10.0.0.0/24                    │
+└─────────────────────────────────────────┘
+
+VPN encrypts traffic between:
+192.168.1.0/24 <---> 10.0.0.0/24
+via 203.0.113.0/30 link
+
+================================================================================
+                              END OF TEMPLATE
+================================================================================

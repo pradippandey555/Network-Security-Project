@@ -1,0 +1,143 @@
+================================================================================
+                    CISCO ROUTER CONFIGURATION TEMPLATE
+                        For Packet Tracer Lab Setup
+================================================================================
+
+!!! BASIC ROUTER SETUP !!!
+
+Router> enable
+Router# configure terminal
+Router(config)# hostname MAIN-ROUTER
+Router(config)# ip domain-name company.com
+
+!!! INTERFACE CONFIGURATION !!!
+
+!--- Configure Fa0/0 (connects to internal network)
+Router(config)# interface FastEthernet 0/0
+Router(config-if)# description Link to Sales Department
+Router(config-if)# ip address 192.168.10.1 255.255.255.0
+Router(config-if)# no shutdown
+Router(config-if)# exit
+
+!--- Configure Fa0/1 (connects to IT department)
+Router(config)# interface FastEthernet 0/1
+Router(config-if)# description Link to IT Department
+Router(config-if)# ip address 192.168.20.1 255.255.255.0
+Router(config-if)# no shutdown
+Router(config-if)# exit
+
+!--- Configure Serial 0/0/0 (connects to another router)
+Router(config)# interface Serial 0/0/0
+Router(config-if)# description Link to Remote Office
+Router(config-if)# ip address 203.0.113.1 255.255.255.252
+Router(config-if)# no shutdown
+Router(config-if)# exit
+
+!!! STATIC ROUTING !!!
+
+!--- Route for 10.0.0.0/24 network via 203.0.113.2
+Router(config)# ip route 10.0.0.0 255.255.255.0 203.0.113.2
+
+!--- Default route (send all unknown traffic to ISP)
+Router(config)# ip route 0.0.0.0 0.0.0.0 203.0.113.2
+
+!!! ACCESS CONTROL LIST - Standard ACL !!!
+
+!--- Deny Telnet traffic, allow other protocols
+Router(config)# access-list 1 permit 192.168.10.0 0.0.0.255
+Router(config)# access-list 1 permit 192.168.20.0 0.0.0.255
+Router(config)# access-list 1 deny 192.168.30.0 0.0.0.255
+Router(config)# access-list 1 permit any
+
+!!! ACCESS CONTROL LIST - Extended ACL !!!
+
+!--- Block Telnet (port 23) from Sales, allow HTTP and HTTPS
+Router(config)# access-list 100 deny tcp 192.168.10.0 0.0.0.255 any eq 23
+Router(config)# access-list 100 permit tcp 192.168.10.0 0.0.0.255 any eq 80
+Router(config)# access-list 100 permit tcp 192.168.10.0 0.0.0.255 any eq 443
+Router(config)# access-list 100 permit icmp 192.168.10.0 0.0.0.255 any
+Router(config)# access-list 100 deny ip any any log
+
+!--- Apply ACL to interface
+Router(config)# interface FastEthernet 0/0
+Router(config-if)# ip access-group 100 out
+Router(config-if)# exit
+
+!!! NETWORK ADDRESS TRANSLATION (NAT) !!!
+
+!--- Define inside and outside interfaces
+Router(config)# interface FastEthernet 0/0
+Router(config-if)# ip nat inside
+Router(config-if)# exit
+
+Router(config)# interface Serial 0/0/0
+Router(config-if)# ip nat outside
+Router(config-if)# exit
+
+!--- Static NAT: Map 192.168.10.50 to 203.0.113.50
+Router(config)# ip nat inside source static 192.168.10.50 203.0.113.50
+
+!--- Dynamic NAT: Create pool of addresses
+Router(config)# ip nat pool NAT-POOL 203.0.113.100 203.0.113.110 netmask 255.255.255.0
+Router(config)# access-list 2 permit 192.168.10.0 0.0.0.255
+Router(config)# ip nat inside source list 2 pool NAT-POOL
+
+!--- PAT (Port Address Translation): Map all to one IP
+Router(config)# access-list 3 permit 192.168.20.0 0.0.0.255
+Router(config)# ip nat inside source list 3 interface Serial 0/0/0 overload
+
+!!! ENABLE SSH ACCESS (SECURE ALTERNATIVE TO TELNET) !!!
+
+Router(config)# crypto key generate rsa modulus 1024
+Router(config)# line vty 0 4
+Router(config-line)# transport input ssh
+Router(config-line)# login local
+Router(config-line)# exit
+
+!--- Create local user account
+Router(config)# username admin privilege 15 secret cisco123
+
+!!! ENABLE LOGGING !!!
+
+Router(config)# logging 192.168.1.100
+Router(config)# logging trap informational
+
+!!! SAVE CONFIGURATION !!!
+
+Router(config)# exit
+Router# copy running-config startup-config
+Router# write memory
+
+!!! VERIFICATION COMMANDS !!!
+
+Router# show running-config
+Router# show interfaces brief
+Router# show ip route
+Router# show ip nat statistics
+Router# show ip nat translations
+Router# show access-lists
+Router# show ip ospf neighbors
+Router# ping 192.168.10.10
+Router# tracert 10.0.0.1
+
+!!! COMMON ISSUES AND FIXES !!!
+
+!--- Check if interface is up
+Router# show interfaces Serial 0/0/0 | include up
+
+!--- Debug routing
+Router# debug ip routing
+Router# undebug all
+
+!--- Check ACL effectiveness
+Router# show access-lists
+Router# show interfaces Fa0/0 | include inbound
+
+!--- Verify NAT translations are working
+Router# show ip nat translations
+Router# debug ip nat
+Router# undebug all
+
+================================================================================
+                              END OF TEMPLATE
+================================================================================
