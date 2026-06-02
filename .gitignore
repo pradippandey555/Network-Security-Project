@@ -1,0 +1,92 @@
+.gitignore
+
+# Packet Tracer Files
+*.pkt
+*.pka
+*.pkz
+
+# Backup Files
+*.bak
+*.backup
+*~
+*.swp
+*.swo
+
+# OS Files
+.DS_Store
+Thumbs.db
+.directory
+
+# IDE Files
+.vscode/
+.idea/
+*.sublime-project
+*.sublime-workspace
+*.code-workspace
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# Virtual Environments
+venv/
+ENV/
+env/
+.venv
+
+# Temporary Files
+*.tmp
+*.temp
+*.log
+*.pid
+*.seed
+
+# Configuration Files (keep examples, ignore local)
+config.local.json
+.env.local
+.credentials
+.auth
+
+# Database Files
+*.db
+*.sqlite
+*.sqlite3
+
+# Sensitive Information
+*.key
+*.pem
+*.crt
+private/
+secrets/
+
+# Node modules (if using any JavaScript tools)
+node_modules/
+npm-debug.log
+
+# Documentation Build Output
+site/
+.doctrees/
+
+# Miscellaneous
+.cache/
+.pytest_cache/
+.coverage
+htmlcov/
